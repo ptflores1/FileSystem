@@ -46,10 +46,10 @@ LIB=$(GTK) $(MTH) $(THR)
 ###############################################################################
 
 # Directorios con elementos de uso común
-COMMON=utils
+COMMON=cr_API
 
 # Directorios que serán compilados a un programa
-PROGRAMS=crvid gameoflife
+PROGRAMS=crfs
 
 # Todos los directorios que contienen archivos de código
 SRCDIR=$(COMMON) $(PROGRAMS)
