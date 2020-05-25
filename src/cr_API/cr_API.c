@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include "cr_API.h"
 #include "../utils/utils.h"
@@ -15,10 +16,17 @@
         (byte & 0x01 ? '1' : '0')
 
 // constants
+/*
+    const int S_1KB = 1024;
+    const int S_1MB = 1024 * S_1KB;
+    const int S_BLOCK = 8 * S_1KB;
+    const int S_PARTITION = 512 * S_1MB;
+    const int S_DIR_ENTRY = 32;
+*/
 const int S_1KB = 1024;
-const int S_1MB = 1024 * S_1KB;
-const int S_BLOCK = 8 * S_1KB;
-const int S_PARTITION = 512 * S_1MB;
+const int S_1MB = 1024 * 1024;
+const int S_BLOCK = 8 * 1024;
+const int S_PARTITION = 512 * 1024 * 1024;
 const int S_DIR_ENTRY = 32;
 
 // General functions
@@ -85,7 +93,23 @@ void cr_bitmap(unsigned int disk, bool hex)
 
 int cr_exists(unsigned int disk, char *filename) {}
 
-void cr_ls(unsigned int disk) {}
+void cr_ls(unsigned int disk) {
+    FILE* f;
+    unsigned char buffer[S_BLOCK];
+    int offset = (disk - 1) * 512 * pow(1024, 2);
+    
+    f = fopen(binPath,"rb");
+    fseek(f, offset, SEEK_SET);
+    fread(buffer, S_BLOCK, 1, f);
+
+    for (int i = 0; i < S_BLOCK; i += 32) {
+        if (buffer[i] & 0x80) {
+            printf("> ");
+            for (int j = 3; j < 32; j++) printf("%c", buffer[i + j]);
+            printf("\n");
+        }
+    }
+}
 
 // File management functions
 

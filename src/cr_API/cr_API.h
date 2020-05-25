@@ -1,6 +1,7 @@
+#pragma once
 #include <stdbool.h>
 #include <string.h>
-#pragma once
+#include <stdio.h>
 
 // Global variables
 extern char* binPath;
