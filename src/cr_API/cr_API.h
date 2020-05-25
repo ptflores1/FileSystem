@@ -1,11 +1,13 @@
 #include <stdbool.h>
 #include <string.h>
+#pragma once
 
 // Global variables
 extern char* binPath;
 
 // Structs
-typedef struct {
+typedef struct
+{
 } crFILE;
 
 // General functions

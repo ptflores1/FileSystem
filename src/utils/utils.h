@@ -1,0 +1,1 @@
+int count_bits(unsigned char byte);

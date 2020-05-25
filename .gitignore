@@ -3,3 +3,5 @@ simdiskformat.bin
 Dockerfile
 run
 .dockerignore
+crfs
+obj/
