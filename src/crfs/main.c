@@ -11,5 +11,8 @@ int main() {
     
     cr_open(1, "Baroque.mp3", 'r');
     cr_open(1, "Baroque_new.mp3", 'w');
+    // cr_softlink(1, 2, "somefiel.some", "some");
+    // cr_hardlink(3, "yes.mp3", "no.mp3");
+    cr_ls(1);
     return 0;
 }

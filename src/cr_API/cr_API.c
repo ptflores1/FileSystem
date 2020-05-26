@@ -206,7 +206,56 @@ int cr_close(crFILE *file_desc) {}
 
 int cr_rm(unsigned int disk, char *filename) {}
 
-int cr_hardlink(unsigned int disk, char *orig, char *dest) {}
+int cr_hardlink(unsigned int disk, char *orig, char *dest) {
+    FILE *storage = fopen(binPath, "rb+");
+    unsigned char *buffer = (unsigned char *)malloc(S_BLOCK);
+    fseek(storage, (disk - 1) * S_PARTITION, SEEK_SET);
+    fread(buffer, 1, S_BLOCK, storage);
+    unsigned char *new_file_entry = (unsigned char *)calloc(32, 1);
+    for (int i = 3; i < 32; i++) {
+        if(dest[i - 3] == '\0')
+            break;
+        new_file_entry[i] = dest[i - 3];
+    }
+
+    for (int i = 0; i < S_BLOCK; i += 32){
+        if(cmp_filename(&buffer[i], orig)){
+            for (int j = 0; j < 3; j++)
+                new_file_entry[j] = buffer[j];
+            break;
+        }
+    }
+
+    for (int i = 0; i < S_BLOCK; i += 32)
+    {
+        if (!(buffer[i] & 0x80))
+        {
+            for (int j = 0; j < 32; j++)
+                buffer[i + j] = new_file_entry[j];
+            break;
+        }
+    }
+
+    fseek(storage, (disk - 1) * S_PARTITION, SEEK_SET);
+    fwrite(buffer, 1, S_BLOCK, storage);
+
+    int dir = 0 | (new_file_entry[2]) | (new_file_entry[1] << 8) | ((new_file_entry[0] ^ 0x80) << 16);
+    fseek(storage, dir * S_BLOCK, SEEK_SET);
+    fread(buffer, 1, S_BLOCK, storage);
+
+    swap(&buffer[0], &buffer[3]);
+    swap(&buffer[1], &buffer[2]);
+    int *refs = (int *)buffer;
+    (*refs)++;
+    swap(&buffer[0], &buffer[3]);
+    swap(&buffer[1], &buffer[2]);
+
+    fseek(storage, dir * S_BLOCK, SEEK_SET);
+    fwrite(buffer, 1, S_BLOCK, storage);
+
+    free(buffer);
+    fclose(storage);
+}
 
 int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char *dest) {
     char filename[29];

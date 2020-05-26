@@ -20,3 +20,10 @@ int cmp_filename(unsigned char *dir_entry, char *filename)
     }
     return 1;
 }
+
+void swap(unsigned char *a, unsigned char *b)
+{
+    unsigned char tmp = *a;
+    *a = *b;
+    *b = tmp;
+}
