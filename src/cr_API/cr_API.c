@@ -154,7 +154,30 @@ int cr_rm(unsigned int disk, char *filename) {}
 
 int cr_hardlink(unsigned int disk, char *orig, char *dest) {}
 
-int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char *dest) {}
+int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char *dest) {
+    char filename[29];
+    sprintf(filename, "%d/%s", disk_orig, orig);
+    
+    FILE *storage = fopen(binPath, "rb+");
+    fseek(storage, (disk_dest - 1) * S_PARTITION, SEEK_SET);
+    unsigned char *buffer = (unsigned char *)malloc(S_BLOCK);
+    fread(buffer, 1, S_BLOCK, storage);
+
+    for (int i = 0; i < S_BLOCK; i += 32)
+    {
+        if(!(buffer[i] & 0x80)){
+            buffer[i] |= 0x80;
+            for (int j = 3; j < 32; j++)
+                buffer[i + j] = filename[j - 3];
+            break;
+        }
+    }
+    fseek(storage, (disk_dest - 1) * S_PARTITION, SEEK_SET);
+    fwrite(buffer, 1, S_BLOCK, storage);
+
+    free(buffer);
+    fclose(storage);
+}
 
 int cr_unload(unsigned disk, char *orig, char *dest) {}
 
