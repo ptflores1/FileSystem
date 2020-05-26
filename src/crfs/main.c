@@ -7,7 +7,9 @@ char* binPath;
 
 int main() {
     cr_mount("simdiskfilled.bin");
-    // cr_softlink(1, 2, "somefiel.some", "some");
-    cr_ls(1);
+    //cr_ls(1);
+    
+    cr_open(1, "Baroque.mp3", 'r');
+    cr_open(1, "Baroque_new.mp3", 'w');
     return 0;
 }

@@ -7,8 +7,9 @@
 extern char* binPath;
 
 // Structs
-typedef struct
-{
+typedef struct {
+    char filename[29];
+    unsigned int blockNumber;
 } crFILE;
 
 // General functions

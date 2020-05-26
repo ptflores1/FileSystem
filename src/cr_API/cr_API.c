@@ -6,7 +6,7 @@
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
 #define BYTE_TO_BINARY(byte)       \
-    (byte & 0x80 ? '1' : '0'),     \
+        (byte & 0x80 ? '1' : '0'), \
         (byte & 0x40 ? '1' : '0'), \
         (byte & 0x20 ? '1' : '0'), \
         (byte & 0x10 ? '1' : '0'), \
@@ -142,7 +142,61 @@ void cr_ls(unsigned int disk)
 
 // File management functions
 
-crFILE *cr_open(unsigned int disk, char *filename, char mode) {}
+/* Currently storing just blockNumber and filename */
+crFILE* cr_open(unsigned int disk, char *filename, char mode) {
+    if (mode == 'r') {
+        if (!cr_exists(disk, filename)) {
+            printf("[ERROR] No such file \"%s\" on Disk %d.\n", filename, disk);
+            exit(1);
+        }
+        FILE *f;
+        int i, j;
+        unsigned char buffer[S_BLOCK];
+        unsigned char tempPath[29];
+        unsigned char blockNumber[3];
+        int offset = (disk - 1) * 512 * pow(1024, 2);
+
+        f = fopen(binPath, "rb");
+        fseek(f, offset, SEEK_SET);
+        fread(buffer, S_BLOCK, 1, f);
+
+        for (i = 0; i < S_BLOCK; i += 32) {
+            if (buffer[i] & 0x80) {
+                memset(tempPath, 0, sizeof(tempPath));
+                for (j = 3; j < 32; j++) {
+                    tempPath[j-3] = buffer[i + j];
+                }
+                // File is found
+                if (!strcmp(filename, tempPath)) {
+                    for (j = 0; j < 3; j++) {
+                        blockNumber[j] = buffer[i + j];
+                        // Remove first bit
+                        if (j==0) {
+                            blockNumber[j] = blockNumber[j] & 0x7F;
+                        }
+                    }
+                    unsigned int blockAsUint = (unsigned int)blockNumber[0] << 16 |
+                                               (unsigned int)blockNumber[1] << 8  |
+                                               (unsigned int)blockNumber[2];
+                    fclose(f);
+                    crFILE* openFile = (crFILE*)malloc(sizeof(crFILE));
+                    openFile->blockNumber = blockAsUint;
+                    strcpy(openFile->filename, filename);
+                    return openFile;
+                }
+            }
+        }
+
+    } else if (mode == 'w') {
+         if (cr_exists(disk, filename)) {
+            printf("[ERROR] File \"%s\" already exists on Disk %d.\n", filename, disk);
+            exit(1);
+        }
+        crFILE* openFile = (crFILE*)malloc(sizeof(crFILE));
+        strcpy(openFile->filename, filename);
+        return openFile;
+    }
+}
 
 int cr_read(crFILE *file_desc, void *buffer, int nbytes) {}
 
