@@ -30,11 +30,13 @@ const int S_PARTITION = 512 * 1024 * 1024;
 const int S_DIR_ENTRY = 32;
 
 // General functions
-void cr_mount(char *diskname) {
+void cr_mount(char *diskname)
+{
     binPath = diskname;
 }
 
-int _cr_bitmap(unsigned int disk, bool hex) {
+int _cr_bitmap(unsigned int disk, bool hex)
+{
     FILE *storage = fopen(binPath, "rb");
     fseek(storage, (disk - 1) * S_PARTITION + S_BLOCK, SEEK_SET);
     char *buffer = malloc(S_BLOCK);
@@ -45,7 +47,8 @@ int _cr_bitmap(unsigned int disk, bool hex) {
     {
         for (int i = 0; i < S_BLOCK; i++)
         {
-            if (i % 16 == 0) printf("\n%04x:  ", (disk - 1) * S_PARTITION + S_BLOCK + i);
+            if (i % 16 == 0)
+                printf("\n%04x:  ", (disk - 1) * S_PARTITION + S_BLOCK + i);
             printf("%02x ", (unsigned char)buffer[i]);
 
             used_blocks += count_bits((unsigned char)buffer[i]);
@@ -55,7 +58,8 @@ int _cr_bitmap(unsigned int disk, bool hex) {
     {
         for (int i = 0; i < S_BLOCK; i++)
         {
-            if (!(i % 16)) printf("\n%04x:  ", (disk - 1) * S_PARTITION + S_BLOCK + i);
+            if (!(i % 16))
+                printf("\n%04x:  ", (disk - 1) * S_PARTITION + S_BLOCK + i);
             printf(BYTE_TO_BINARY_PATTERN " ", BYTE_TO_BINARY(buffer[i]));
 
             used_blocks += count_bits((unsigned char)buffer[i]);
@@ -64,22 +68,23 @@ int _cr_bitmap(unsigned int disk, bool hex) {
     printf("\n");
     free(buffer);
     fclose(storage);
-    
+
     return used_blocks;
 }
 
 void cr_bitmap(unsigned int disk, bool hex)
 {
-    if(disk){
+    if (disk)
+    {
         _cr_bitmap(disk, hex);
     }
     else
     {
-        int used_blocks[] = {0,0,0,0};
+        int used_blocks[] = {0, 0, 0, 0};
         for (int i = 1; i <= 4; i++)
         {
             printf("\n\nDisk %d\n", i);
-            used_blocks[i-1] = _cr_bitmap(i, hex);
+            used_blocks[i - 1] = _cr_bitmap(i, hex);
         }
         printf("\n\n");
         for (int i = 1; i <= 4; i++)
@@ -91,24 +96,48 @@ void cr_bitmap(unsigned int disk, bool hex)
     }
 }
 
-int cr_exists(unsigned int disk, char *filename) {}
+int cr_exists(unsigned int disk, char *filename)
+{
+    FILE *storage = fopen(binPath, "rb");
+    unsigned char *buffer = (unsigned char *)malloc(S_BLOCK);
+    fread(buffer, 1, S_BLOCK, storage);
 
-void cr_ls(unsigned int disk) {
-    FILE* f;
+    int ret = 0;
+    for (int i = 0; i < S_BLOCK; i += 32)
+    {
+        if (cmp_filename(&buffer[i], filename))
+        {
+            ret = 1;
+            break;
+        }
+    }
+
+    free(buffer);
+    fclose(storage);
+    return ret;
+}
+
+void cr_ls(unsigned int disk)
+{
+    FILE *f;
     unsigned char buffer[S_BLOCK];
     int offset = (disk - 1) * 512 * pow(1024, 2);
-    
-    f = fopen(binPath,"rb");
+
+    f = fopen(binPath, "rb");
     fseek(f, offset, SEEK_SET);
     fread(buffer, S_BLOCK, 1, f);
 
-    for (int i = 0; i < S_BLOCK; i += 32) {
-        if (buffer[i] & 0x80) {
+    for (int i = 0; i < S_BLOCK; i += 32)
+    {
+        if (buffer[i] & 0x80)
+        {
             printf("> ");
-            for (int j = 3; j < 32; j++) printf("%c", buffer[i + j]);
+            for (int j = 3; j < 32; j++)
+                printf("%c", buffer[i + j]);
             printf("\n");
         }
     }
+    fclose(f);
 }
 
 // File management functions
