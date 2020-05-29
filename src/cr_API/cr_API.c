@@ -204,7 +204,47 @@ int cr_write(crFILE *file_desc, void *buffer, int nytes) {}
 
 int cr_close(crFILE *file_desc) {}
 
-int cr_rm(unsigned int disk, char *filename) {}
+int cr_rm(unsigned int disk, char *filename) {
+    unsigned int UcharAsUint;
+    crFILE* file = cr_open(disk, filename, 'r');
+    int i;
+
+    FILE* bin = fopen(binPath, "rb");
+    unsigned char buffer[S_BLOCK];
+    fseek(bin, file->blockNumber*S_BLOCK, SEEK_SET);
+    fread(buffer, S_BLOCK, 1, bin);
+
+    unsigned char hardlinkCount[4];
+    for (i=0; i<4; i++) { hardlinkCount[i] = buffer[i]; }
+    UcharAsUint = (unsigned int)hardlinkCount[0] << 24 |
+                    (unsigned int)hardlinkCount[1] << 16 |
+                    (unsigned int)hardlinkCount[2] << 8  |
+                    (unsigned int)hardlinkCount[3];
+    /*if (UcharAsUint > 0) {
+        printf("[ERROR] File \"%s\" can't be deleted because it has a hardlink.\n", filename);
+        fclose(bin);
+        exit(1);
+    }*/
+    
+    int counter = 0;
+    unsigned char currBlock[4];
+    for (i=12; i<=8188; i++) {
+        if (i%4 == 0 && i>12) {
+            UcharAsUint = (unsigned int)currBlock[0] << 24 |
+                          (unsigned int)currBlock[1] << 16 | 
+                          (unsigned int)currBlock[2] << 8  |
+                          (unsigned int)currBlock[3];
+            if (UcharAsUint > 0) {
+                printf("%u %i\n", UcharAsUint, i);
+            }
+            
+            counter = 0;
+            memset(currBlock, 0, sizeof(currBlock));
+        }
+        currBlock[counter] = buffer[i];
+        counter++;
+    };
+}
 
 int cr_hardlink(unsigned int disk, char *orig, char *dest) {
     FILE *storage = fopen(binPath, "rb+");
