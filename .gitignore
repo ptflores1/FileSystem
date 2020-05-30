@@ -5,3 +5,4 @@ run
 .dockerignore
 crfs
 obj/
+.DS_Store

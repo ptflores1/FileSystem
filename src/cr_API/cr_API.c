@@ -100,6 +100,7 @@ int cr_exists(unsigned int disk, char *filename)
 {
     FILE *storage = fopen(binPath, "rb");
     unsigned char *buffer = (unsigned char *)malloc(S_BLOCK);
+    fseek(storage, S_PARTITION * (disk - 1), SEEK_SET);
     fread(buffer, 1, S_BLOCK, storage);
 
     int ret = 0;
