@@ -181,6 +181,8 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
                     fclose(f);
                     crFILE* openFile = (crFILE*)malloc(sizeof(crFILE));
                     openFile->blockNumber = blockAsUint;
+                    openFile->currentBlockToRead = 0;
+                    openFile->lastByteRead = 0;
                     strcpy(openFile->filename, filename);
                     return openFile;
                 }
@@ -199,21 +201,32 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
 }
 
 int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
-    
-    unsigned char indexBlock[S_BLOCK], indirectBlock[S_BLOCK], dataBlock[S_BLOCK], auxBuffer[nbytes];
+    unsigned char indexBlock[S_BLOCK], indirectBlock[S_BLOCK], dataBlock[S_BLOCK], auxBuffer[nbytes], test[8];
     unsigned int blockPointers[2*(S_BLOCK/4)];
     unsigned int UcharAsUint;
-    int i, j, extractSize, byteCount = 0, pointerCount = 0, empty = 0;
+    uint64_t fileSize;
+    int i, j, extractSize, starPoint, byteCount = 0, pointerCount = 0, empty = 0;
     FILE* f = fopen(binPath, "rb");
     //Extract block pointers from idex block
     fseek(f, file_desc->blockNumber*S_BLOCK, SEEK_SET);
     fread(indexBlock, S_BLOCK, 1, f);
+            fileSize =      (uint64_t)indexBlock[4] << 56 |
+                            (uint64_t)indexBlock[5] << 48 | 
+                            (uint64_t)indexBlock[6] << 40 |
+                            (uint64_t)indexBlock[7] << 32 |
+                            (uint64_t)indexBlock[8] << 24 |
+                            (uint64_t)indexBlock[9] << 16 | 
+                            (uint64_t)indexBlock[10] << 8 |
+                            (uint64_t)indexBlock[11]; 
+    printf("%ld", fileSize);
+    printf("\n");
     for (i=12; i<8188; i+=4) {
             UcharAsUint = (unsigned int)indexBlock[i] << 24 |
                             (unsigned int)indexBlock[i+1] << 16 | 
                             (unsigned int)indexBlock[i+2] << 8  |
                             (unsigned int)indexBlock[i+3];
-            if (UcharAsUint!=0) {
+            if (UcharAsUint) {
+                
                 blockPointers[pointerCount] = UcharAsUint;
                 pointerCount ++;
             }
@@ -239,30 +252,52 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
                 };
             }
     //Then data is extracted from data blocks until reach the nbytes required
-    for(i=0; i < pointerCount; i++){
+    if(nbytes > fileSize){
+            nbytes = fileSize;
+        }
+   
+    //If there is remaining data to read in a previus block, is extracted firts
+    if(file_desc->lastByteRead != 0){
+        starPoint = file_desc->lastByteRead;
+        if(S_BLOCK - file_desc->lastByteRead > nbytes){
+            extractSize = nbytes;
+            file_desc->lastByteRead += nbytes;
+        }else{
+            extractSize = file_desc->lastByteRead;
+            file_desc->lastByteRead = 0;
+        }
+        fseek(f, blockPointers[file_desc->currentBlockToRead - 1]*S_BLOCK, SEEK_SET);
+        fread(dataBlock, S_BLOCK , 1, f);
+        for(j=0; j < extractSize; j++){
+            auxBuffer[j] = dataBlock[j + file_desc->lastByteRead];
+        }
+        byteCount += extractSize;
+    }
+    //Then the data is extracted from the point 
+    for(i=file_desc->currentBlockToRead; i < pointerCount; i++){
         fseek(f, blockPointers[i]*S_BLOCK, SEEK_SET);
         if(byteCount + S_BLOCK > nbytes){
             extractSize = nbytes - byteCount;
+            file_desc->currentBlockToRead = i + 1;
+            file_desc->lastByteRead = extractSize;
             i = pointerCount;
         }else{
             extractSize = S_BLOCK;
+            file_desc->currentBlockToRead = i + 1;
+            file_desc->lastByteRead = 0;
         }
         
         fread(dataBlock, extractSize , 1, f);
         for(j=0; j < extractSize; j++){
             auxBuffer[byteCount + j] = dataBlock[j];
-            if(dataBlock[j] == 0){
-                empty = extractSize - j; 
-                break;
-            }
-            
         }
-        if(empty){
-            byteCount+= extractSize -empty;
-            break;
-        } 
         byteCount += extractSize;
     };
+    
+    if(byteCount == fileSize){
+        file_desc->currentBlockToRead = 0;
+        file_desc->lastByteRead = 0;
+    }
     memcpy(buffer, auxBuffer, nbytes); 
     fclose(f);
     return byteCount;

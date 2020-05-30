@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdint.h>
 
 // Global variables
 extern char* binPath;
@@ -10,6 +11,8 @@ extern char* binPath;
 typedef struct {
     char filename[29];
     unsigned int blockNumber;
+    unsigned int currentBlockToRead;
+    unsigned int lastByteRead;
 } crFILE;
 
 // General functions
