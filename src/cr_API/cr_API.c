@@ -198,7 +198,75 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
     }
 }
 
-int cr_read(crFILE *file_desc, void *buffer, int nbytes) {}
+int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
+    
+    unsigned char indexBlock[S_BLOCK], indirectBlock[S_BLOCK], dataBlock[S_BLOCK], auxBuffer[nbytes];
+    unsigned int blockPointers[2*(S_BLOCK/4)];
+    unsigned int UcharAsUint;
+    int i, j, extractSize, byteCount = 0, pointerCount = 0, empty = 0;
+    FILE* f = fopen(binPath, "rb");
+    //Extract block pointers from idex block
+    fseek(f, file_desc->blockNumber*S_BLOCK, SEEK_SET);
+    fread(indexBlock, S_BLOCK, 1, f);
+    for (i=12; i<8188; i+=4) {
+            UcharAsUint = (unsigned int)indexBlock[i] << 24 |
+                            (unsigned int)indexBlock[i+1] << 16 | 
+                            (unsigned int)indexBlock[i+2] << 8  |
+                            (unsigned int)indexBlock[i+3];
+            if (UcharAsUint!=0) {
+                blockPointers[pointerCount] = UcharAsUint;
+                pointerCount ++;
+            }
+    };
+    //Check for simple indirect addressing
+    UcharAsUint = (unsigned int)indexBlock[8188] << 24 |
+                    (unsigned int)indexBlock[8189] << 16 | 
+                    (unsigned int)indexBlock[8190] << 8  |
+                    (unsigned int)indexBlock[8191];
+    //If there is one, extract his pointers
+    if (UcharAsUint!=0) {
+                fseek(f, UcharAsUint*S_BLOCK, SEEK_SET);
+                fread(indirectBlock, S_BLOCK, 1, f);
+                for (i=0; i<8192; i+=4) {
+                    UcharAsUint = (unsigned int)indirectBlock[i] << 24 |
+                                    (unsigned int)indirectBlock[i+1] << 16 | 
+                                    (unsigned int)indirectBlock[i+2] << 8  |
+                                    (unsigned int)indirectBlock[i+3];
+                    if (UcharAsUint!=0) {
+                        blockPointers[pointerCount] = UcharAsUint;
+                        pointerCount ++;
+                    }
+                };
+            }
+    //Then data is extracted from data blocks until reach the nbytes required
+    for(i=0; i < pointerCount; i++){
+        fseek(f, blockPointers[i]*S_BLOCK, SEEK_SET);
+        if(byteCount + S_BLOCK > nbytes){
+            extractSize = nbytes - byteCount;
+            i = pointerCount;
+        }else{
+            extractSize = S_BLOCK;
+        }
+        
+        fread(dataBlock, extractSize , 1, f);
+        for(j=0; j < extractSize; j++){
+            auxBuffer[byteCount + j] = dataBlock[j];
+            if(dataBlock[j] == 0){
+                empty = extractSize - j; 
+                break;
+            }
+            
+        }
+        if(empty){
+            byteCount+= extractSize -empty;
+            break;
+        } 
+        byteCount += extractSize;
+    };
+    memcpy(buffer, auxBuffer, nbytes); 
+    fclose(f);
+    return byteCount;
+}
 
 int cr_write(crFILE *file_desc, void *buffer, int nytes) {}
 
