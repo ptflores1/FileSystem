@@ -205,7 +205,7 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
     unsigned int blockPointers[2*(S_BLOCK/4)];
     unsigned int UcharAsUint;
     uint64_t fileSize;
-    int i, j, extractSize, starPoint, byteCount = 0, pointerCount = 0, empty = 0;
+    int i, j, extractSize, startPoint, byteCount = 0, pointerCount = 0, empty = 0;
     FILE* f = fopen(binPath, "rb");
     //Extract block pointers from idex block
     fseek(f, file_desc->blockNumber*S_BLOCK, SEEK_SET);
@@ -218,8 +218,6 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
                             (uint64_t)indexBlock[9] << 16 | 
                             (uint64_t)indexBlock[10] << 8 |
                             (uint64_t)indexBlock[11]; 
-    printf("%ld", fileSize);
-    printf("\n");
     for (i=12; i<8188; i+=4) {
             UcharAsUint = (unsigned int)indexBlock[i] << 24 |
                             (unsigned int)indexBlock[i+1] << 16 | 
@@ -255,10 +253,9 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
     if(nbytes > fileSize){
             nbytes = fileSize;
         }
-   
     //If there is remaining data to read in a previus block, is extracted firts
     if(file_desc->lastByteRead != 0){
-        starPoint = file_desc->lastByteRead;
+        startPoint = file_desc->lastByteRead;
         if(S_BLOCK - file_desc->lastByteRead > nbytes){
             extractSize = nbytes;
             file_desc->lastByteRead += nbytes;
@@ -269,9 +266,14 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
         fseek(f, blockPointers[file_desc->currentBlockToRead - 1]*S_BLOCK, SEEK_SET);
         fread(dataBlock, S_BLOCK , 1, f);
         for(j=0; j < extractSize; j++){
-            auxBuffer[j] = dataBlock[j + file_desc->lastByteRead];
+            auxBuffer[j] = dataBlock[j + startPoint];
         }
-        byteCount += extractSize;
+        if(file_desc->lastByteRead > fileSize){
+            byteCount = fileSize - startPoint;
+        }else{
+            byteCount += extractSize;
+        }
+        
     }
     //Then the data is extracted from the point 
     for(i=file_desc->currentBlockToRead; i < pointerCount; i++){
@@ -293,7 +295,6 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
         }
         byteCount += extractSize;
     };
-    
     if(byteCount == fileSize){
         file_desc->currentBlockToRead = 0;
         file_desc->lastByteRead = 0;
