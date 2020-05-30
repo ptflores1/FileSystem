@@ -204,46 +204,77 @@ int cr_write(crFILE *file_desc, void *buffer, int nytes) {}
 
 int cr_close(crFILE *file_desc) {}
 
+
+unsigned int UcharBlockAsUint(unsigned char* UcharBlock) {
+    return (unsigned int)UcharBlock[0] << 24 |
+           (unsigned int)UcharBlock[1] << 16 |
+           (unsigned int)UcharBlock[2] << 8  |
+           (unsigned int)UcharBlock[3];
+}
+
+int _cr_rm(int disk, unsigned int block) {
+    printf("USED BLOCK -> %u\n", block);
+
+    unsigned char bitmap[1];
+    FILE* bin = fopen(binPath, "rb");
+    fseek(bin, (disk - 1) * S_PARTITION + S_BLOCK + (int)floor(block/8), SEEK_SET);
+    fread(bitmap, 1, 1, bin);
+    printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(bitmap[0]));
+    printf("\nAND\n");
+    printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(~(0x80>>(block%8))));
+    printf("\n=\n");
+    printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(bitmap[0] & ~(0x80>>(block%8))));
+    printf("\n");
+    fclose(bin);
+}
+
 int cr_rm(unsigned int disk, char *filename) {
-    unsigned int UcharAsUint;
+    unsigned int blockNumber, hardlinkNumber;
+    int i, j;
     crFILE* file = cr_open(disk, filename, 'r');
-    int i;
 
     FILE* bin = fopen(binPath, "rb");
     unsigned char buffer[S_BLOCK];
     fseek(bin, file->blockNumber*S_BLOCK, SEEK_SET);
     fread(buffer, S_BLOCK, 1, bin);
 
+    /* Check if the file has hardlinks */
     unsigned char hardlinkCount[4];
     for (i=0; i<4; i++) { hardlinkCount[i] = buffer[i]; }
-    UcharAsUint = (unsigned int)hardlinkCount[0] << 24 |
-                    (unsigned int)hardlinkCount[1] << 16 |
-                    (unsigned int)hardlinkCount[2] << 8  |
-                    (unsigned int)hardlinkCount[3];
-    /*if (UcharAsUint > 0) {
+    hardlinkNumber = UcharBlockAsUint(hardlinkCount);
+    /*if (hardlinkNumber > 0) {
         printf("[ERROR] File \"%s\" can't be deleted because it has a hardlink.\n", filename);
         fclose(bin);
         exit(1);
     }*/
-    
-    int counter = 0;
+    fclose(bin);
+
+
+    /* Delete blocks [pointers] from bitmap */
     unsigned char currBlock[4];
-    for (i=12; i<=8188; i++) {
-        if (i%4 == 0 && i>12) {
-            UcharAsUint = (unsigned int)currBlock[0] << 24 |
-                          (unsigned int)currBlock[1] << 16 | 
-                          (unsigned int)currBlock[2] << 8  |
-                          (unsigned int)currBlock[3];
-            if (UcharAsUint > 0) {
-                printf("%u %i\n", UcharAsUint, i);
-            }
-            
-            counter = 0;
-            memset(currBlock, 0, sizeof(currBlock));
+    for (i = 12; i < S_BLOCK - 4; i += 4) {
+        for (j = 0; j < 4; j++) currBlock[j] = buffer[i + j];   
+        blockNumber = UcharBlockAsUint(currBlock);
+        if (blockNumber > 0) { _cr_rm(disk, blockNumber); }
+        memset(currBlock, 0, sizeof(currBlock));
+    }
+    /* Delete blocks [indirect addressing] from bitmap */
+    for (i=S_BLOCK-4; i<S_BLOCK; i++) { currBlock[i - (S_BLOCK-4)] = buffer[i]; }
+    unsigned int indirectBlock = UcharBlockAsUint(currBlock);
+    if (indirectBlock > 0) {
+        printf("\n## INDIRECT ##\n");
+        FILE* bin2 = fopen(binPath, "rb");
+        fseek(bin2, file->blockNumber*S_BLOCK, SEEK_SET);
+        fread(buffer, S_BLOCK, 1, bin2);
+        for (i = 0; i < S_BLOCK; i += 4) {
+            for (j = 0; j < 4; j++) currBlock[j] = buffer[i + j];   
+                blockNumber = UcharBlockAsUint(currBlock);
+                if (blockNumber > 0) { _cr_rm(disk, blockNumber); }
+                memset(currBlock, 0, sizeof(currBlock));
         }
-        currBlock[counter] = buffer[i];
-        counter++;
-    };
+        fclose(bin2);
+        _cr_rm(disk, indirectBlock);
+    }
 }
 
 int cr_hardlink(unsigned int disk, char *orig, char *dest) {
