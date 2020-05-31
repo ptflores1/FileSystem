@@ -151,8 +151,25 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
             printf("[ERROR] No such file \"%s\" on Disk %d.\n", filename, disk);
             exit(1);
         }
-        FILE *f;
         int i, j;
+
+        if (filename[1] == '/') {
+            /*
+            printf("%s, %u\n", filename, disk);
+            char auxDisk[1]; auxDisk[0] = filename[0]; disk = atoi(auxDisk);
+            int len = strlen(filename);
+            char* filenameAux = (char*)calloc(len, 1);
+            for (i=2; i<len; i++) {
+                filenameAux[i-2] = filename[i];
+                filename[i-2] = filenameAux[i-2];
+            }
+            free(filenameAux);
+            printf("%s, %u\n", filename, disk);
+            */
+        }
+
+
+        FILE *f;
         unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
         unsigned char blockNumber[3];
         int offset = (disk - 1) * 512 * pow(1024, 2);
@@ -192,6 +209,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
             exit(1);
         }
         crFILE* openFile = (crFILE*)calloc(1, sizeof(crFILE));
+        openFile->diskNumber = disk;
         memcpy(openFile->filename, filename, strlen(filename));
         return openFile;
     }
