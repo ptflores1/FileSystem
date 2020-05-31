@@ -198,7 +198,11 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
 }
 
 int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
-    unsigned char indexBlock[S_BLOCK], indirectBlock[S_BLOCK], dataBlock[S_BLOCK], auxBuffer[nbytes], test[8];
+    unsigned char* indexBlock = (unsigned char*)malloc(S_BLOCK);
+    unsigned char* indirectBlock = (unsigned char*)malloc(S_BLOCK);
+    unsigned char* dataBlock = (unsigned char*)malloc(S_BLOCK);
+    unsigned char* auxBuffer = (unsigned char*)malloc(nbytes);
+
     unsigned int blockPointers[2*(S_BLOCK/4)];
     unsigned int UcharAsUint;
     uint64_t fileSize;
@@ -298,12 +302,13 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
     }
     memcpy(buffer, auxBuffer, nbytes); 
     fclose(f);
+    free(indexBlock); free(indirectBlock); free(dataBlock); free(auxBuffer);
     return byteCount;
 }
 
 int cr_write(crFILE *file_desc, void *buffer, int nytes) {}
 
-int cr_close(crFILE *file_desc) {}
+int cr_close(crFILE *file_desc) { free(file_desc); }
 
 
 unsigned int UcharBlockAsUint(unsigned char* UcharBlock) {
@@ -334,7 +339,7 @@ void _cr_rm_path(unsigned int disk, char* filename) {
             // File is found
             if (cmp_filename(&buffer[i], filename)) {
                 for (j=0; j<32; j++) buffer[i + j] = 0;
-                
+
                 fseek(bin, (disk-1)*S_PARTITION, SEEK_SET);
                 fwrite(buffer, 1, S_BLOCK, bin);
                 fclose(bin);
@@ -363,15 +368,15 @@ int cr_rm(unsigned int disk, char *filename) {
     unsigned char hardlinkCount[4];
     for (i=0; i<4; i++) { hardlinkCount[i] = indexBuffer[i]; }
     hardlinkNumber = UcharBlockAsUint(hardlinkCount);
-    if (hardlinkNumber > 0) { 
+    if (hardlinkNumber > 1) {
         /* Decreases hardlink count of filename's index block */
         unsigned char* hardlinkCountUpdated = UintBlockAsUchar(hardlinkNumber - 1);
         for (i=0; i<4; i++) { indexBuffer[i] = hardlinkCountUpdated[i]; }
         fseek(bin, file->blockNumber*S_BLOCK, SEEK_SET);
         fwrite(indexBuffer, 1, S_BLOCK, bin);
 
-        free(hardlinkCountUpdated);
         fclose(bin);
+        free(hardlinkCountUpdated);
         free(indexBuffer);
         return 0; 
     }
@@ -419,6 +424,7 @@ int cr_rm(unsigned int disk, char *filename) {
             }
             memset(currBlock, 0, sizeof(currBlock));
         }
+        free(indirectBuffer);
     }
     /* Deletes indirect block pointer */
     normalized = (int)floor((indirectBlock - 65536*(disk-1))/8);
@@ -429,6 +435,7 @@ int cr_rm(unsigned int disk, char *filename) {
     fclose(bin);
     free(bitmapBuffer);
     free(indexBuffer);
+    return 0;
 }
 
 int cr_hardlink(unsigned int disk, char *orig, char *dest) {
