@@ -154,7 +154,6 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
         FILE *f;
         int i, j;
         unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
-        unsigned char tempPath[29];
         unsigned char blockNumber[3];
         int offset = (disk - 1) * 512 * pow(1024, 2);
 
@@ -164,12 +163,8 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
 
         for (i = 0; i < S_BLOCK; i += 32) {
             if (buffer[i] & 0x80) {
-                memset(tempPath, 0, sizeof(tempPath));
-                for (j = 3; j < 32; j++) {
-                    tempPath[j-3] = buffer[i + j];
-                }
                 // File is found
-                if (cmp_filename(tempPath, filename)) {
+                if (cmp_filename(&buffer[i], filename)) {
                     for (j = 0; j < 3; j++) {
                         blockNumber[j] = buffer[i + j];
                         // Remove first bit
