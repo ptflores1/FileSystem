@@ -329,22 +329,19 @@ unsigned char* UintBlockAsUchar(unsigned int UintBlock) {
 
 void _cr_rm_path(unsigned int disk, char* filename) {
     unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
-    FILE* bin = fopen(binPath, "rb");
+    FILE* bin = fopen(binPath, "rb+");
     fseek(bin, (disk-1)*S_PARTITION, SEEK_SET);
     fread(buffer, S_BLOCK, 1, bin);
-    fclose(bin);
-
-    FILE* binWrite = fopen(binPath, "w");
 
     for (int i = 0; i < S_BLOCK; i += 32) {
         if (cmp_filename(&buffer[i], filename)) {
             for (int j = 0; j<32; j++) {
                 printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(buffer[i+j]));
-                //fseek(binWrite, (disk-1)*S_PARTITION + i + j, SEEK_SET);
-                fclose(bin);
-                fclose(binWrite);
-                free(buffer);
+                printf("\n");
             }
+            fclose(bin);
+            free(buffer);
+            return;
         }
     }
 }
