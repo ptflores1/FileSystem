@@ -121,7 +121,7 @@ int cr_exists(unsigned int disk, char *filename)
 void cr_ls(unsigned int disk)
 {
     FILE *f;
-    unsigned char buffer[S_BLOCK];
+    unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
     int offset = (disk - 1) * 512 * pow(1024, 2);
 
     f = fopen(binPath, "rb");
@@ -138,6 +138,7 @@ void cr_ls(unsigned int disk)
             printf("\n");
         }
     }
+    free(buffer);
     fclose(f);
 }
 
@@ -152,7 +153,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
         }
         FILE *f;
         int i, j;
-        unsigned char buffer[S_BLOCK];
+        unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
         unsigned char tempPath[29];
         unsigned char blockNumber[3];
         int offset = (disk - 1) * 512 * pow(1024, 2);
@@ -180,6 +181,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
                                                (unsigned int)blockNumber[1] << 8  |
                                                (unsigned int)blockNumber[2];
                     fclose(f);
+                    free(buffer);
                     crFILE* openFile = (crFILE*)malloc(sizeof(crFILE));
                     openFile->blockNumber = blockAsUint;
                     openFile->currentBlockToRead = 0;
@@ -189,7 +191,6 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
                 }
             }
         }
-
     } else if (mode == 'w') {
          if (cr_exists(disk, filename)) {
             printf("[ERROR] File \"%s\" already exists on Disk %d.\n", filename, disk);
@@ -324,22 +325,6 @@ unsigned char* UintBlockAsUchar(unsigned int UintBlock) {
     UcharBlock[2] = (UintBlock >> 8 ) & 0xFF;
     UcharBlock[3] = (UintBlock      ) & 0xFF;
     return UcharBlock;
-}
-
-void _cr_rm_block(int disk, unsigned int block) {
-    unsigned char bitmap[S_BLOCK];
-    FILE* bin = fopen(binPath, "rb");
-    fseek(bin, (disk - 1) * S_PARTITION + S_BLOCK, SEEK_SET);
-    fread(bitmap, S_BLOCK, 1, bin);
-    int normalized = (int)floor((block - 65536*(disk-1))/8);
-    
-    /*
-    printf("\nUSED BLOCK -> %u\n", block);
-    printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(bitmap[normalized]));
-    printf("\n");
-    */
-    /* BORRAR DEL BITMAP */
-    fclose(bin);
 }
 
 void _cr_rm_path(unsigned int disk, char* filename) {
