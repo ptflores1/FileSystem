@@ -323,22 +323,27 @@ unsigned char* UintBlockAsUchar(unsigned int UintBlock) {
 }
 
 void _cr_rm_path(unsigned int disk, char* filename) {
+    int i, j;
     unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
     FILE* bin = fopen(binPath, "rb+");
     fseek(bin, (disk-1)*S_PARTITION, SEEK_SET);
     fread(buffer, S_BLOCK, 1, bin);
 
-    for (int i = 0; i < S_BLOCK; i += 32) {
-        if (cmp_filename(&buffer[i], filename)) {
-            for (int j = 0; j<32; j++) {
-                printf(BYTE_TO_BINARY_PATTERN, BYTE_TO_BINARY(buffer[i+j]));
-                printf("\n");
+    for (i = 0; i < S_BLOCK; i += 32) {
+        if (buffer[i] & 0x80) {
+            // File is found
+            if (cmp_filename(&buffer[i], filename)) {
+                for (j=0; j<32; j++) buffer[i + j] = 0;
+                
+                fseek(bin, (disk-1)*S_PARTITION, SEEK_SET);
+                fwrite(buffer, 1, S_BLOCK, bin);
+                fclose(bin);
+                free(buffer);
+                return;
             }
-            fclose(bin);
-            free(buffer);
-            return;
         }
     }
+                
 }
 
 int cr_rm(unsigned int disk, char *filename) {
@@ -346,13 +351,13 @@ int cr_rm(unsigned int disk, char *filename) {
     int i, j;
     crFILE* file = cr_open(disk, filename, 'r');
 
+    /* Remove filename's path from directory block */
+    _cr_rm_path(disk, filename);
+
     FILE* bin = fopen(binPath, "rb+");
     unsigned char* indexBuffer = (unsigned char*)malloc(S_BLOCK);
     fseek(bin, file->blockNumber*S_BLOCK, SEEK_SET);
     fread(indexBuffer, S_BLOCK, 1, bin);
-
-    /* Remove filename's path from directory block */
-    // _cr_rm_path(disk, filename);
 
     /* Check if the file has hardlinks */
     unsigned char hardlinkCount[4];
@@ -360,7 +365,6 @@ int cr_rm(unsigned int disk, char *filename) {
     hardlinkNumber = UcharBlockAsUint(hardlinkCount);
     if (hardlinkNumber > 0) { 
         /* Decreases hardlink count of filename's index block */
-        printf("has hardlink");
         unsigned char* hardlinkCountUpdated = UintBlockAsUchar(hardlinkNumber - 1);
         for (i=0; i<4; i++) { indexBuffer[i] = hardlinkCountUpdated[i]; }
         fseek(bin, file->blockNumber*S_BLOCK, SEEK_SET);
@@ -401,7 +405,6 @@ int cr_rm(unsigned int disk, char *filename) {
     for (i=S_BLOCK-4; i<S_BLOCK; i++) { currBlock[i - (S_BLOCK-4)] = indexBuffer[i]; }
     unsigned int indirectBlock = UcharBlockAsUint(currBlock);
     if (indirectBlock > 0) {
-        printf("\n## INDIRECT ##\n");
         unsigned char* indirectBuffer = (unsigned char*)malloc(S_BLOCK);
         fseek(bin, indirectBlock*S_BLOCK, SEEK_SET);
         fread(indirectBuffer, S_BLOCK, 1, bin);
