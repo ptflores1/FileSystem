@@ -339,7 +339,6 @@ void _cr_rm_path(unsigned int disk, char* filename) {
             // File is found
             if (cmp_filename(&buffer[i], filename)) {
                 for (j=0; j<32; j++) buffer[i + j] = 0;
-
                 fseek(bin, (disk-1)*S_PARTITION, SEEK_SET);
                 fwrite(buffer, 1, S_BLOCK, bin);
                 fclose(bin);
@@ -358,6 +357,8 @@ int cr_rm(unsigned int disk, char *filename) {
 
     /* Remove filename's path from directory block */
     _cr_rm_path(disk, filename);
+    /* If its a softlink, end */
+    if (filename[1] == '/') { return 0; }
 
     FILE* bin = fopen(binPath, "rb+");
     unsigned char* indexBuffer = (unsigned char*)malloc(S_BLOCK);
