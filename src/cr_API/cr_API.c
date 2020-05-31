@@ -169,7 +169,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
                     tempPath[j-3] = buffer[i + j];
                 }
                 // File is found
-                if (!strcmp(filename, tempPath)) {
+                if (cmp_filename(tempPath, filename)) {
                     for (j = 0; j < 3; j++) {
                         blockNumber[j] = buffer[i + j];
                         // Remove first bit
@@ -182,11 +182,11 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
                                                (unsigned int)blockNumber[2];
                     fclose(f);
                     free(buffer);
-                    crFILE* openFile = (crFILE*)malloc(sizeof(crFILE));
+                    crFILE* openFile = (crFILE*)calloc(1, sizeof(crFILE));
                     openFile->blockNumber = blockAsUint;
                     openFile->currentBlockToRead = 0;
                     openFile->lastByteRead = 0;
-                    strcpy(openFile->filename, filename);
+                    memcpy(openFile->filename, filename, strlen(filename));
                     return openFile;
                 }
             }
@@ -196,8 +196,8 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
             printf("[ERROR] File \"%s\" already exists on Disk %d.\n", filename, disk);
             exit(1);
         }
-        crFILE* openFile = (crFILE*)malloc(sizeof(crFILE));
-        strcpy(openFile->filename, filename);
+        crFILE* openFile = (crFILE*)calloc(1, sizeof(crFILE));
+        memcpy(openFile->filename, filename, strlen(filename));
         return openFile;
     }
 }
