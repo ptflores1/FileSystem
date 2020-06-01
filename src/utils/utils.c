@@ -27,3 +27,10 @@ void swap(unsigned char *a, unsigned char *b)
     *a = *b;
     *b = tmp;
 }
+
+void check_filename_length(char *filename, int length) {
+    if (strlen(filename) > length) {
+        printf("[ERROR] Filename \"%s\" is too long: %d.\n", filename, strlen(filename));
+        exit(1);
+    }
+}
