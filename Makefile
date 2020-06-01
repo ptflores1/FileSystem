@@ -26,7 +26,7 @@ OPT=-g # Guardar toda la información para poder debugear. No optimiza
 # -Wunused = (Warn Unused) Da aviso de las variables que no se estan usando
 # -Wall    = (Warn All) Da aviso de todos los posibles errores de compilación
 # $(OPT)   = Nivel de optimización
-CFLAGS=$(OPT)
+CFLAGS=$(OPT) -Wpedantic -Wall -Wextra -Wunused
 
 ###############################################################################
 # LIBRERÍAS                                                                   #
@@ -38,6 +38,7 @@ MTH=-lm
 THR=-lpthread
 # Interfaz gráfica GTK+
 GTK=`pkg-config --cflags --libs gtk+-3.0`
+GTK=
 
 LIB=$(GTK) $(MTH) $(THR)
 
@@ -49,7 +50,7 @@ LIB=$(GTK) $(MTH) $(THR)
 COMMON=cr_API utils
 
 # Directorios que serán compilados a un programa
-PROGRAMS=crfs
+PROGRAMS=crfs main_1
 
 # Todos los directorios que contienen archivos de código
 SRCDIR=$(COMMON) $(PROGRAMS)

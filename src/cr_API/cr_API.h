@@ -4,9 +4,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-// Global variables
-extern char* binPath;
-
 // Structs
 typedef struct {
     char filename[29];
