@@ -324,7 +324,114 @@ int cr_read(crFILE *file_desc, void *buffer, int nbytes) {
     return byteCount;
 }
 
-int cr_write(crFILE *file_desc, void *buffer, int nytes) {}
+int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
+    //Define variables and costants to use
+    int i, j, currBit , blockCounter,searchCounter=0, bitmapOffset=(file_desc->diskNumber-1)*S_PARTITION+S_BLOCK;
+    unsigned int blockNumber, switcher;
+    unsigned int* blockPointers;
+    FILE* bin;
+    unsigned char* bitmap = (unsigned char*)calloc(S_BLOCK, 1);
+    unsigned char* directory = (unsigned char*)calloc(S_BLOCK, 1);
+    unsigned char* indexBlock = (unsigned char*)calloc(S_BLOCK, 1);
+    unsigned char* indirectBlock = (unsigned char*)calloc(S_BLOCK, 1);
+    unsigned char* dataBlock = (unsigned char*)calloc(S_BLOCK, 1);
+    unsigned char* auxBuffer = (unsigned char*)calloc(nbytes, 1);
+    //Calculate the number of data blocks to use plus the index block
+    blockCounter = (int)ceil((double)nbytes / (double)S_BLOCK) + 1;
+    //If simple indirect addressing is needed plus 1 to the block counter
+    if(blockCounter>2045)blockCounter++;
+    //Determinate in the bitmap wich block to use for de index block and data blocks
+    blockPointers = (unsigned int*)calloc(blockCounter, sizeof(unsigned int));
+    bin = fopen(binPath, "rb+");
+    fseek(bin, bitmapOffset, SEEK_SET);
+    fread(bitmap, S_BLOCK, 1, bin);
+    for(i = 0; i<S_BLOCK && searchCounter < blockCounter; i++){
+        currBit = 0x80;
+        for(j=0;j<8 && searchCounter < blockCounter;j++){
+            if(!(bitmap[i] & currBit)){
+                //save the new pointer
+                blockNumber = (i*8 + j) +(file_desc->diskNumber - 1)*S_BLOCK*8;
+                blockPointers[searchCounter] = blockNumber;
+                searchCounter++;
+                //set the bit used in the bitmap to 1
+                switcher = 0x80 >> (blockNumber)%8;
+                bitmap[i] |= switcher; 
+            }
+        currBit = currBit >> 1;    
+        }
+    }
+    //fwrite(bitmap, 1, S_BLOCK, bin);
+    free(bitmap);
+
+    //Go to the directory block and create a new entry
+    fseek(bin, bitmapOffset - S_BLOCK, SEEK_SET);
+    fread(directory, S_BLOCK, 1, bin);
+    for (i = 0; i < S_BLOCK; i += 32) {
+        if (!(directory[i] & 0x80)) {
+            //set the valid bit to one
+            directory[i]|= 0x80; 
+            //add the index block pointer
+            for(j=0;j<3;j++)directory[i+j] |= (blockPointers[0] >> (2-j)*8) & 0xFF;
+            //add the name of the file
+            for(j=3;j<32;j++)directory[i+j] = file_desc->filename[j-3];
+            break;
+        }
+    }
+    //fwrite(directory, 1, S_BLOCK, bin);
+    free(directory);
+
+    //Next, go to the index block chosen, add the file size and all the pointers. Use the simple indirect addressing if necesary. Set the unused pointer spaces to 0
+    fseek(bin, blockPointers[0] * S_BLOCK, SEEK_SET);
+    fread(indexBlock, S_BLOCK, 1, bin);
+    // add the file size
+    for(i=0;i<8;i++)indexBlock[i+4]=((uint64_t)nbytes >> (7-i)*8) & 0xFF;
+    // add the pointers to data blocks
+    for(i=12;i<8188 && i<(blockCounter-1)*4+12;i+=4){
+        //add pointer
+        for(j=0;j<4;j++)indexBlock[i+j]=(blockPointers[(i/4)-2] >> (3-j)*8) & 0xFF;
+    }
+    // if indirect addressing is not necesary, complete the rest of the pointers space with 0 
+    if(blockCounter < 2046){
+        for(i=(blockCounter-1)*4+12;i<8192;i++)indexBlock[i] = '0';
+        //fwrite(indexBlock, 1, S_BLOCK, bin);
+    }
+    // otherwise, add the rest of the pointers to the simple indirect address block 
+    else{
+        //set the pointer to the simple indirect address block at the end of the index block
+        for(i=0;i<4;i++)indexBlock[8188+i]=(blockPointers[blockCounter-1] >> (3-j)*8) & 0xFF;
+        //fwrite(indexBlock, 1, S_BLOCK, bin);
+
+        //go to the simple indirect address block
+        fseek(bin, blockPointers[blockCounter-1] * S_BLOCK, SEEK_SET);
+        fread(indirectBlock, S_BLOCK, 1, bin);
+        //add the remaining pointers to the simple indirect address block
+        for(i=0;i<(blockCounter-2046)*4;i+=4){
+            //add pointer
+            for(j=0;j<4;j++)indirectBlock[i+j]=(blockPointers[(i/4)+2045] >> (3-j)*8) & 0xFF;
+        }
+        //complete the rest of the pointers space on the simple indirect address block with 0 
+        for(i=(blockCounter-2046)*4;i<8192;i++)indexBlock[i] = '0';
+        //fwrite(indirectBlock, 1, S_BLOCK, bin);
+    }
+    free(indexBlock);
+    free(indirectBlock);
+    //Finally, write the data in the data blocks
+    memcpy(auxBuffer, buffer, nbytes);
+    for(i=1;i<blockCounter-2;i++){
+        //go to the data block
+        fseek(bin, blockPointers[i] * S_BLOCK, SEEK_SET);
+        fread(dataBlock, S_BLOCK, 1, bin);
+
+        for(j=0;j<S_BLOCK;j++){
+            dataBlock[j]=auxBuffer[j+i*S_BLOCK];
+        }
+        //fwrite(dataBlock, 1, S_BLOCK, bin);
+    }
+    free(dataBlock);
+    free(auxBuffer);
+    free(blockPointers);
+    fclose(bin);
+}
 
 int cr_close(crFILE *file_desc) { free(file_desc); }
 
@@ -344,6 +451,7 @@ unsigned char* UintBlockAsUchar(unsigned int UintBlock) {
     UcharBlock[3] = (UintBlock      ) & 0xFF;
     return UcharBlock;
 }
+
 
 void _cr_rm_path(unsigned int disk, char* filename) {
     int i, j;
