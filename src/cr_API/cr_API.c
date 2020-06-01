@@ -155,12 +155,13 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
         int i, j;
         
         char usedFilename[29] = "";
+        unsigned int usedDisk = disk;
         if (filename[1] == '/') {
             char newDisk[1]; newDisk[0] = filename[0];
-            disk = atoi(newDisk);
+            usedDisk = (unsigned int)newDisk[0] - 48;
             for (i=2; i<strlen(filename); i++) usedFilename[i-2] = filename[i];
-            if (!cr_exists(disk, usedFilename)) {
-                printf("[ERROR] No such file \"%s\" on Disk %d (Referenced from softlink \"%s\").\n", usedFilename, disk, filename);
+            if (!cr_exists(usedDisk, usedFilename)) {
+                printf("[ERROR] No such file \"%s\" on Disk %d (Referenced from softlink \"%s\").\n", usedFilename, usedDisk, filename);
                 exit(1);
             }
         } else {
@@ -170,7 +171,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
         FILE *f;
         unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
         unsigned char blockNumber[3];
-        int offset = (disk - 1) * 512 * pow(1024, 2);
+        int offset = (usedDisk - 1) * 512 * pow(1024, 2);
 
         f = fopen(binPath, "rb");
         fseek(f, offset, SEEK_SET);
@@ -346,7 +347,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
                 searchCounter++;
                 //set the bit used in the bitmap to 1
                 switcher = 0x80 >> (blockNumber)%8;
-                bitmap[i] |= switcher; 
+                bitmap[i] |= switcher;
             }
         currBit = currBit >> 1;    
         }
@@ -401,7 +402,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     }
     // if indirect addressing is not necesary, complete the rest of the pointers space with 0 
     if(blockCounter < 2046){
-        for(i=(blockCounter-1)*4+12;i<8192;i++)indexBlock[i] = '0';
+        for(i=(blockCounter-1)*4+12;i<8192;i++)indexBlock[i] = 0;
         fseek(bin, blockPointers[0] * S_BLOCK, SEEK_SET);
         fwrite(indexBlock, 1, S_BLOCK, bin);
     }
@@ -421,7 +422,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
             for(j=0;j<4;j++)indirectBlock[i+j]=(blockPointers[(i/4)+2045] >> (3-j)*8) & 0xFF;
         }
         //complete the rest of the pointers space on the simple indirect address block with 0 
-        for(i=(blockCounter-2046)*4;i<8192;i++)indexBlock[i] = '0';
+        for(i=(blockCounter-2046)*4;i<8192;i++)indexBlock[i] = 0;
         fseek(bin, blockPointers[blockCounter-1] * S_BLOCK, SEEK_SET);
         fwrite(indirectBlock, 1, S_BLOCK, bin);
         blockCounter--;
@@ -429,7 +430,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     free(indexBlock);
     free(indirectBlock);
     //Finally, write the data in the data blocks
-    unsigned char* auxBuffer = (unsigned char*)calloc(nbytes, 1);
+    unsigned char* auxBuffer = (unsigned char*)calloc(blockCounter*S_BLOCK, 1);
     unsigned char* dataBlock = (unsigned char*)calloc(S_BLOCK, 1);
     memcpy(auxBuffer, buffer, nbytes);
     for(i=1;i<blockCounter;i++){
@@ -546,9 +547,6 @@ int cr_rm(unsigned int disk, char *filename) {
     normalized = (int)floor((file->blockNumber - 65536*(disk-1))/8);
     switcher = ~(0x80 >> (file->blockNumber)%8);
     bitmapBuffer[normalized] &= switcher;
-
-    
-
      /* Delete blocks [indirect addressing] from bitmap */
     for (i=S_BLOCK-4; i<S_BLOCK; i++) { currBlock[i - (S_BLOCK-4)] = indexBuffer[i]; }
     unsigned int indirectBlock = UcharBlockAsUint(currBlock);
@@ -568,12 +566,13 @@ int cr_rm(unsigned int disk, char *filename) {
             memset(currBlock, 0, sizeof(currBlock));
         }
         free(indirectBuffer);
+        /* Deletes indirect block pointer */
+        normalized = (int)floor((indirectBlock - 65536*(disk-1))/8);
+        switcher = ~(0x80 >> (indirectBlock)%8);
+        bitmapBuffer[normalized] &= switcher;
     }
-    /* Deletes indirect block pointer */
-    normalized = (int)floor((indirectBlock - 65536*(disk-1))/8);
-    switcher = ~(0x80 >> (indirectBlock)%8);
-    bitmapBuffer[normalized] &= switcher;
-
+    
+    fseek(bin, (disk - 1) * S_PARTITION + S_BLOCK, SEEK_SET);
     fwrite(bitmapBuffer, 1, S_BLOCK, bin);
     fclose(bin);
     free(bitmapBuffer);
