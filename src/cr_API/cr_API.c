@@ -585,16 +585,23 @@ int cr_rm(unsigned int disk, char *filename) {
 }
 
 int cr_hardlink(unsigned int disk, char *orig, char *dest) {
+
+    if (!cr_exists(disk, orig)) return 0;
+
+    unsigned char *new_file_entry = (unsigned char *)calloc(32, 1);
+    for (int i = 3; i < 32; i++)
+    {
+        if (dest[i - 3] == '\0')
+            break;
+        new_file_entry[i] = dest[i - 3];
+    }
+
+    if(cr_exists(disk, &new_file_entry[3])) return 0;
+
     FILE *storage = fopen(binPath, "rb+");
     unsigned char *buffer = (unsigned char *)malloc(S_BLOCK);
     fseek(storage, (disk - 1) * S_PARTITION, SEEK_SET);
     fread(buffer, 1, S_BLOCK, storage);
-    unsigned char *new_file_entry = (unsigned char *)calloc(32, 1);
-    for (int i = 3; i < 32; i++) {
-        if(dest[i - 3] == '\0')
-            break;
-        new_file_entry[i] = dest[i - 3];
-    }
 
     for (int i = 0; i < S_BLOCK; i += 32){
         if(cmp_filename(&buffer[i], orig)){
@@ -633,6 +640,8 @@ int cr_hardlink(unsigned int disk, char *orig, char *dest) {
 
     free(buffer);
     fclose(storage);
+
+    return 1;
 }
 
 int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char *dest) {
@@ -647,6 +656,8 @@ int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char
         if(orig[i - 2] == 0) flag = 0;
         if (flag) filename[i] = orig[i - 2];
     }
+    
+    if (cr_exists(disk_dest, filename)) return 0;
 
     FILE *storage = fopen(binPath, "rb+");
     fseek(storage, (disk_dest - 1) * S_PARTITION, SEEK_SET);
@@ -667,6 +678,7 @@ int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char
 
     free(buffer);
     fclose(storage);
+    return 1;
 }
 
 char **_cr_get_filenames(unsigned disk, int *filename_count);
