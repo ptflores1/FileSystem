@@ -152,22 +152,19 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
             exit(1);
         }
         int i, j;
-
+        
+        char usedFilename[29] = "";
         if (filename[1] == '/') {
-            /*
-            printf("%s, %u\n", filename, disk);
-            char auxDisk[1]; auxDisk[0] = filename[0]; disk = atoi(auxDisk);
-            int len = strlen(filename);
-            char* filenameAux = (char*)calloc(len, 1);
-            for (i=2; i<len; i++) {
-                filenameAux[i-2] = filename[i];
-                filename[i-2] = filenameAux[i-2];
+            char newDisk[1]; newDisk[0] = filename[0];
+            disk = atoi(newDisk);
+            for (i=2; i<strlen(filename); i++) usedFilename[i-2] = filename[i];
+            if (!cr_exists(disk, usedFilename)) {
+                printf("[ERROR] No such file \"%s\" on Disk %d (Referenced from softlink \"%s\").\n", usedFilename, disk, filename);
+                exit(1);
             }
-            free(filenameAux);
-            printf("%s, %u\n", filename, disk);
-            */
+        } else {
+            strcpy(usedFilename, filename);
         }
-
 
         FILE *f;
         unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
@@ -181,7 +178,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
         for (i = 0; i < S_BLOCK; i += 32) {
             if (buffer[i] & 0x80) {
                 // File is found
-                if (cmp_filename(&buffer[i], filename)) {
+                if (cmp_filename(&buffer[i], usedFilename)) {
                     for (j = 0; j < 3; j++) {
                         blockNumber[j] = buffer[i + j];
                         // Remove first bit
@@ -193,12 +190,12 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
                                                (unsigned int)blockNumber[1] << 8  |
                                                (unsigned int)blockNumber[2];
                     fclose(f);
-                    free(buffer);
                     crFILE* openFile = (crFILE*)calloc(1, sizeof(crFILE));
                     openFile->blockNumber = blockAsUint;
                     openFile->currentBlockToRead = 0;
                     openFile->lastByteRead = 0;
-                    memcpy(openFile->filename, filename, strlen(filename));
+                    memcpy(openFile->filename, usedFilename, strlen(usedFilename));
+                    free(buffer);
                     return openFile;
                 }
             }
