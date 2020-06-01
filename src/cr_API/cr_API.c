@@ -327,11 +327,6 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     unsigned int* blockPointers;
     FILE* bin;
     unsigned char* bitmap = (unsigned char*)calloc(S_BLOCK, 1);
-    unsigned char* directory = (unsigned char*)calloc(S_BLOCK, 1);
-    unsigned char* indexBlock = (unsigned char*)calloc(S_BLOCK, 1);
-    unsigned char* indirectBlock = (unsigned char*)calloc(S_BLOCK, 1);
-    unsigned char* dataBlock = (unsigned char*)calloc(S_BLOCK, 1);
-    unsigned char* auxBuffer = (unsigned char*)calloc(nbytes, 1);
     //Calculate the number of data blocks to use plus the index block
     blockCounter = (int)ceil((double)nbytes / (double)S_BLOCK) + 1;
     //If simple indirect addressing is needed plus 1 to the block counter
@@ -347,7 +342,6 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
             if(!(bitmap[i] & currBit)){
                 //save the new pointer
                 blockNumber = (i*8 + j) +(file_desc->diskNumber - 1)*S_BLOCK*8;
-                printf("%u  !!!\n", blockNumber);
                 blockPointers[searchCounter] = blockNumber;
                 searchCounter++;
                 //set the bit used in the bitmap to 1
@@ -357,11 +351,25 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
         currBit = currBit >> 1;    
         }
     }
+    //Determinate if the space found in the disk is enough to write the required nbytes
+    if(searchCounter < blockCounter){
+        if(searchCounter <= 1){
+            free(bitmap);
+            free(blockPointers);
+            return 0;
+        }
+        if(searchCounter > 2045){
+            nbytes = (searchCounter - 2) * S_BLOCK;
+        }else{
+            nbytes = (searchCounter - 1) * S_BLOCK;
+        }
+        blockCounter = searchCounter;
+    }
     fseek(bin, bitmapOffset, SEEK_SET);
     fwrite(bitmap, 1, S_BLOCK, bin);
     free(bitmap);
-
     //Go to the directory block and create a new entry
+    unsigned char* directory = (unsigned char*)calloc(S_BLOCK, 1);
     fseek(bin, bitmapOffset - S_BLOCK, SEEK_SET);
     fread(directory, S_BLOCK, 1, bin);
     for (i = 0; i < S_BLOCK; i += 32) {
@@ -380,6 +388,8 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     free(directory);
 
     //Next, go to the index block chosen, add the file size and all the pointers. Use the simple indirect addressing if necesary. Set the unused pointer spaces to 0
+    unsigned char* indexBlock = (unsigned char*)calloc(S_BLOCK, 1);
+    unsigned char* indirectBlock = (unsigned char*)calloc(S_BLOCK, 1);
     fseek(bin, blockPointers[0] * S_BLOCK, SEEK_SET);
     fread(indexBlock, S_BLOCK, 1, bin);
     // add the file size
@@ -419,6 +429,8 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     free(indexBlock);
     free(indirectBlock);
     //Finally, write the data in the data blocks
+    unsigned char* auxBuffer = (unsigned char*)calloc(nbytes, 1);
+    unsigned char* dataBlock = (unsigned char*)calloc(S_BLOCK, 1);
     memcpy(auxBuffer, buffer, nbytes);
     for(i=1;i<blockCounter;i++){
         //go to the data block
@@ -435,6 +447,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     free(auxBuffer);
     free(blockPointers);
     fclose(bin);
+    return nbytes;
 }
 
 int cr_close(crFILE *file_desc) { free(file_desc); }
