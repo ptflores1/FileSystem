@@ -1,4 +1,6 @@
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 int count_bits(unsigned char byte)
 {
@@ -30,9 +32,9 @@ void swap(unsigned char *a, unsigned char *b)
     *b = tmp;
 }
 
-void check_filename_length(char *filename, int length) {
+void check_filename_length(char *filename, unsigned length) {
     if (strlen(filename) > length) {
-        printf("[ERROR] Filename \"%s\" is too long: %d.\n", filename, strlen(filename));
+        printf("[ERROR] Filename \"%s\" is too long: %ld.\n", filename, strlen(filename));
         exit(1);
     }
 }

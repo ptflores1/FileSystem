@@ -670,7 +670,7 @@ int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char
 }
 
 char **_cr_get_filenames(unsigned disk, int *filename_count);
-int _cr_unload(unsigned disk, char *orig, char *dest);
+int _cr_unload_partition(unsigned disk, char *orig, char *dest);
 int _cr_unload_file(unsigned disk, char *orig, char *dest);
 
 int cr_unload(unsigned disk, char *orig, char *dest)
@@ -682,7 +682,7 @@ int cr_unload(unsigned disk, char *orig, char *dest)
         if (stat(dest, &sb) == -1) {
             mkdir(dest, 0755);
         }
-        _cr_unload_partiton(disk, orig, dest);
+        _cr_unload_partition(disk, orig, dest);
     } else {
         _cr_unload_file(disk, orig, dest);
     }
@@ -703,7 +703,7 @@ int _cr_unload_file(unsigned disk, char *orig, char *dest)
         perror(dest);
     }
 
-    while(nbytes = cr_read(infile, buffer, 4096)) {
+    while((nbytes = cr_read(infile, buffer, 4096))) {
         fwrite(buffer, 1, nbytes, outfile);
         printf("%d\n", nbytes);
     }
@@ -713,15 +713,11 @@ int _cr_unload_file(unsigned disk, char *orig, char *dest)
     return 1;
 }
 
-int _cr_unload_partiton(unsigned disk, char *orig, char *dest)
+int _cr_unload_partition(unsigned disk, char *orig, char *dest)
 {
-    FILE *outfile;
-    crFILE *infile;
     char *out_filename;
     char **filenames;
     int filename_count = 0;
-    int nbytes = 0;
-    unsigned char *buffer[4096] = { 0 };
 
     if (orig) {
         filenames = calloc(1, sizeof(char*));
@@ -774,4 +770,7 @@ char **_cr_get_filenames(unsigned disk, int *filename_count) {
     return filenames;
 }
 
-int cr_load(unsigned disk, char *orig) {}
+int cr_load(unsigned disk, char *orig)
+{
+    return 0;
+}
