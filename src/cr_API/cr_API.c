@@ -507,8 +507,17 @@ int cr_hardlink(unsigned int disk, char *orig, char *dest) {
 
 int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char *dest) {
     char filename[29];
-    sprintf(filename, "%d/%s", disk_orig, orig);
-    
+    filename[0] = disk_orig + '0';
+    filename[1] = '/';
+
+    int flag = 1;
+    for (int i = 2; i < 29; i++)
+    {
+        filename[i] = 0;
+        if(orig[i - 2] == 0) flag = 0;
+        if (flag) filename[i] = orig[i - 2];
+    }
+
     FILE *storage = fopen(binPath, "rb+");
     fseek(storage, (disk_dest - 1) * S_PARTITION, SEEK_SET);
     unsigned char *buffer = (unsigned char *)malloc(S_BLOCK);
