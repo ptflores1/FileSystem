@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include "cr_API.h"
+#include <sys/stat.h>
 #include "../utils/utils.h"
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -15,6 +16,9 @@
         (byte & 0x04 ? '1' : '0'), \
         (byte & 0x02 ? '1' : '0'), \
         (byte & 0x01 ? '1' : '0')
+
+// Global variables
+static char *binPath;
 
 // constants
 /*
@@ -665,6 +669,109 @@ int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char
     fclose(storage);
 }
 
-int cr_unload(unsigned disk, char *orig, char *dest) {}
+char **_cr_get_filenames(unsigned disk, int *filename_count);
+int _cr_unload(unsigned disk, char *orig, char *dest);
+int _cr_unload_file(unsigned disk, char *orig, char *dest);
+
+int cr_unload(unsigned disk, char *orig, char *dest)
+{
+    // unload entire partition
+    if(!orig) {
+        // create dest if it doesnt exist
+        struct stat sb;
+        if (stat(dest, &sb) == -1) {
+            mkdir(dest, 0755);
+        }
+        _cr_unload_partiton(disk, orig, dest);
+    } else {
+        _cr_unload_file(disk, orig, dest);
+    }
+
+    return 0;
+}
+
+int _cr_unload_file(unsigned disk, char *orig, char *dest)
+{
+    FILE *outfile;
+    crFILE *infile;
+    int nbytes = 0;
+    unsigned char *buffer[4096] = { 0 };
+
+    infile = cr_open(disk, orig, 'r');
+    outfile = fopen(dest, "wb");
+    if (!outfile) {
+        perror(dest);
+    }
+
+    while(nbytes = cr_read(infile, buffer, 4096)) {
+        fwrite(buffer, 1, nbytes, outfile);
+        printf("%d\n", nbytes);
+    }
+
+    cr_close(infile);
+    fclose(outfile);
+    return 1;
+}
+
+int _cr_unload_partiton(unsigned disk, char *orig, char *dest)
+{
+    FILE *outfile;
+    crFILE *infile;
+    char *out_filename;
+    char **filenames;
+    int filename_count = 0;
+    int nbytes = 0;
+    unsigned char *buffer[4096] = { 0 };
+
+    if (orig) {
+        filenames = calloc(1, sizeof(char*));
+        filenames[0] = orig;
+        filename_count = 1;
+    } else {
+        char **filenames = _cr_get_filenames(disk, &filename_count);
+    }
+
+    for (int i = 0; i < filename_count; i++) {
+        out_filename = join_dir_file(dest, filenames[i]);
+        _cr_unload_file(disk, filenames[i], out_filename);
+    }
+    free(filenames);
+    return 0;
+}
+
+
+
+char **_cr_get_filenames(unsigned disk, int *filename_count) {
+    FILE *f;
+    unsigned char* buffer = (unsigned char*)malloc(S_BLOCK);
+    int offset = (disk - 1) * S_PARTITION;
+
+    f = fopen(binPath, "rb");
+    fseek(f, offset, SEEK_SET);
+    fread(buffer, S_BLOCK, 1, f);
+
+    // 29 + 1 = 30
+    // one extra byte for null terminator
+    char **filenames = calloc(S_BLOCK/S_DIR_ENTRY, sizeof(char*));
+    *filename_count = 0;
+
+    for (int i = 0; i < S_BLOCK; i += 32)
+    {
+        if (buffer[i] & 0x80)
+        {
+            filenames[*filename_count] = calloc(1, 30);
+            memcpy(filenames[*filename_count], &buffer[i + 3], 29);
+            (*filename_count)++;
+        }
+    }
+
+    for (int i = 0; i < *filename_count; i++) {
+        printf("%s\n", filenames[i]);
+    }
+
+    free(buffer);
+    fclose(f);
+    return filenames;
+}
 
 int cr_load(unsigned disk, char *orig) {}

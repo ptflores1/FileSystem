@@ -1,3 +1,5 @@
+#include <string.h>
+
 int count_bits(unsigned char byte)
 {
     int res = 0;
@@ -33,4 +35,15 @@ void check_filename_length(char *filename, int length) {
         printf("[ERROR] Filename \"%s\" is too long: %d.\n", filename, strlen(filename));
         exit(1);
     }
+}
+
+char *join_dir_file(char *dir, char *file)
+{
+    // +1 for null terminator
+    // +1 for '/'
+    char *result = calloc(strlen(dir) + strlen(file) + 2, 1);
+    strcpy(result, dir);
+    strcat(result, "/");
+    strcat(result, file);
+    return result;
 }
