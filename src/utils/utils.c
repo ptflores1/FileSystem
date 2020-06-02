@@ -49,3 +49,16 @@ char *join_dir_file(char *dir, char *file)
     strcat(result, file);
     return result;
 }
+
+char *str_replace_all(char *string, char old_c, char new_c)
+{
+    char *ret = calloc(1, strlen(string) + 1);
+    for (int i = 0; i < strlen(string); i++) {
+        if (string[i] == old_c) {
+            ret[i] = new_c;
+        } else {
+            ret[i] = string[i];
+        }
+    }
+    return ret;
+}

@@ -3,3 +3,4 @@ int cmp_filename(unsigned char *dir_entry, char *filename);
 void swap(unsigned char *a, unsigned char *b);
 void check_filename_length(char *filename, unsigned length);
 char *join_dir_file(char *dir, char *file);
+char *str_replace_all(char *string, char old_c, char new_c);
