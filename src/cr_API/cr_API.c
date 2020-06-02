@@ -166,7 +166,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
             for (i=2; i<strlen(filename); i++) usedFilename[i-2] = filename[i];
             if (!cr_exists(usedDisk, usedFilename)) {
                 printf("[ERROR] No such file \"%s\" on Disk %d (Referenced from softlink \"%s\").\n", usedFilename, usedDisk, filename);
-                exit(1);
+                return 0;
             }
         } else {
             strcpy(usedFilename, filename);
@@ -606,7 +606,7 @@ int cr_hardlink(unsigned int disk, char *orig, char *dest) {
     for (int i = 0; i < S_BLOCK; i += 32){
         if(cmp_filename(&buffer[i], orig)){
             for (int j = 0; j < 3; j++)
-                new_file_entry[j] = buffer[j];
+                new_file_entry[j] = buffer[i + j];
             break;
         }
     }
@@ -682,19 +682,36 @@ int cr_softlink(unsigned int disk_orig, unsigned int disk_dest, char *orig, char
 }
 
 char **_cr_get_filenames(unsigned disk, int *filename_count);
-int _cr_unload_partition(unsigned disk, char *orig, char *dest);
+int _cr_unload_partition(unsigned disk, char *dest);
 int _cr_unload_file(unsigned disk, char *orig, char *dest);
 
 int cr_unload(unsigned disk, char *orig, char *dest)
 {
     // unload entire partition
-    if(!orig) {
+    if (disk == 0) {
+        char *dirname;
+         // create dest if it doesnt exist
+        struct stat sb;
+        if (stat(dest, &sb) == -1) {
+            mkdir(dest, 0755);
+        }
+        for (int d = 1; d <= 4; d++) {
+            char partstr[2]; 
+            sprintf(partstr, "%d", d);
+            dirname = join_dir_file(dest, partstr);
+            if (stat(dirname, &sb) == -1) {
+                mkdir(dirname, 0755);
+            }  
+            _cr_unload_partition(d, dirname);
+            free(dirname);
+        }
+    } else if(!orig) {
         // create dest if it doesnt exist
         struct stat sb;
         if (stat(dest, &sb) == -1) {
             mkdir(dest, 0755);
         }
-        _cr_unload_partition(disk, orig, dest);
+        _cr_unload_partition(disk, dest);
     } else {
         _cr_unload_file(disk, orig, dest);
     }
@@ -707,41 +724,50 @@ int _cr_unload_file(unsigned disk, char *orig, char *dest)
     FILE *outfile;
     crFILE *infile;
     int nbytes = 0;
-    unsigned char *buffer[4096] = { 0 };
-
+    const int BUFF_SIZE = 1000000;
+    unsigned char *buffer = malloc(BUFF_SIZE);
+    
     infile = cr_open(disk, orig, 'r');
+    if (!infile) {
+        free(buffer);
+        return 0;
+    }
     outfile = fopen(dest, "wb");
     if (!outfile) {
         perror(dest);
+        exit(EXIT_FAILURE);
     }
 
-    while((nbytes = cr_read(infile, buffer, 4096))) {
+    nbytes = cr_read(infile, buffer, BUFF_SIZE);
+    fwrite(buffer, 1, nbytes, outfile);
+    while(nbytes >= BUFF_SIZE) {
+        nbytes = cr_read(infile, buffer, BUFF_SIZE);
         fwrite(buffer, 1, nbytes, outfile);
-        printf("%d\n", nbytes);
+        // printf("%d\n", nbytes);
     }
 
     cr_close(infile);
     fclose(outfile);
+    free(buffer);
     return 1;
 }
 
-int _cr_unload_partition(unsigned disk, char *orig, char *dest)
+int _cr_unload_partition(unsigned disk, char *dest)
 {
     char *out_filename;
+    char *out_dir_file;
     char **filenames;
     int filename_count = 0;
 
-    if (orig) {
-        filenames = calloc(1, sizeof(char*));
-        filenames[0] = orig;
-        filename_count = 1;
-    } else {
-        char **filenames = _cr_get_filenames(disk, &filename_count);
-    }
+    filenames = _cr_get_filenames(disk, &filename_count);
 
     for (int i = 0; i < filename_count; i++) {
-        out_filename = join_dir_file(dest, filenames[i]);
-        _cr_unload_file(disk, filenames[i], out_filename);
+        out_filename = str_replace_all(filenames[i], '/', '.');
+        out_dir_file = join_dir_file(dest, out_filename);
+        _cr_unload_file(disk, filenames[i], out_dir_file);
+        free(out_filename);
+        free(out_dir_file);
+        free(filenames[i]);
     }
     free(filenames);
     return 0;
