@@ -166,7 +166,7 @@ crFILE* cr_open(unsigned int disk, char *filename, char mode) {
             for (i=2; i<strlen(filename); i++) usedFilename[i-2] = filename[i];
             if (!cr_exists(usedDisk, usedFilename)) {
                 printf("[ERROR] No such file \"%s\" on Disk %d (Referenced from softlink \"%s\").\n", usedFilename, usedDisk, filename);
-                exit(1);
+                return 0;
             }
         } else {
             strcpy(usedFilename, filename);
@@ -703,7 +703,7 @@ int cr_unload(unsigned disk, char *orig, char *dest)
                 mkdir(dirname, 0755);
             }  
             _cr_unload_partition(d, dirname);
-
+            free(dirname);
         }
     } else if(!orig) {
         // create dest if it doesnt exist
@@ -726,8 +726,12 @@ int _cr_unload_file(unsigned disk, char *orig, char *dest)
     int nbytes = 0;
     const int BUFF_SIZE = 1000000;
     unsigned char *buffer = malloc(BUFF_SIZE);
-
+    
     infile = cr_open(disk, orig, 'r');
+    if (!infile) {
+        free(buffer);
+        return 0;
+    }
     outfile = fopen(dest, "wb");
     if (!outfile) {
         perror(dest);
