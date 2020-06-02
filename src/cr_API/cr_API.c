@@ -413,7 +413,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     // otherwise, add the rest of the pointers to the simple indirect address block 
     else{
         //set the pointer to the simple indirect address block at the end of the index block
-        for(i=0;i<4;i++)indexBlock[8188+i]=(blockPointers[blockCounter-1] >> (3-j)*8) & 0xFF;
+        for(i=0;i<4;i++)indexBlock[8188+i] = (blockPointers[blockCounter-1] >> (3-i)*8) & 0xFF;
         fseek(bin, blockPointers[0] * S_BLOCK, SEEK_SET);
         fwrite(indexBlock, 1, S_BLOCK, bin);
 
@@ -455,7 +455,7 @@ int cr_write(crFILE *file_desc, void *buffer, int nbytes) {
     return nbytes;
 }
 
-int cr_close(crFILE *file_desc) { free(file_desc); }
+int cr_close(crFILE *file_desc) { free(file_desc); return 0; }
 
 
 unsigned int UcharBlockAsUint(unsigned char* UcharBlock) {
