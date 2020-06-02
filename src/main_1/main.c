@@ -12,10 +12,17 @@ int main() {
     cr_ls(0);
     cr_unload(0, 0, "unload-filled");
 
+
     cr_mount("simdiskformat.bin");
+
     cr_ls(0);
+    cr_bitmap(1, 0);
+
     cr_load(1, "test-input");
+
     cr_ls(0);
+    cr_bitmap(1, 0);
+
     cr_unload(0, 0, "load-unload");
     return 0;
 }

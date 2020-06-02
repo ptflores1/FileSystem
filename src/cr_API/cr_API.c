@@ -826,7 +826,7 @@ int _cr_load_file( unsigned disk, char *dest, char *src)
     }
     cr_close(outfile);
     fclose(infile);
-
+    free(buffer);
 }
 
 int cr_load(unsigned disk, char *orig)
