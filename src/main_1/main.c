@@ -9,6 +9,9 @@
 int main() {
     cr_mount("simdiskfilled.bin");
     cr_unload(2, "text.txt", "text.txt");
+    cr_unload(2, 0, "outdir-2");
+    cr_unload(0, 0, "outdir-0");
+
 
 
     // cr_rm(2, "yes.mp3");
