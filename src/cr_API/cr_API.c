@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "cr_API.h"
 #include <sys/stat.h>
+#include <dirent.h> 
 #include "../utils/utils.h"
 
 #define BYTE_TO_BINARY_PATTERN "%c%c%c%c%c%c%c%c"
@@ -799,16 +800,70 @@ char **_cr_get_filenames(unsigned disk, int *filename_count) {
         }
     }
 
-    for (int i = 0; i < *filename_count; i++) {
-        printf("%s\n", filenames[i]);
-    }
+    // for (int i = 0; i < *filename_count; i++) {
+    //     printf("%s\n", filenames[i]);
+    // }
 
     free(buffer);
     fclose(f);
     return filenames;
 }
 
+int _cr_load_file( unsigned disk, char *dest, char *src);
+
+int _cr_load_file( unsigned disk, char *dest, char *src)
+{
+    crFILE *outfile;
+    FILE *infile;
+    const int BUFF_SIZE = 1000000;
+    unsigned char *buffer = malloc(BUFF_SIZE);
+    int nbytes;
+
+    infile = fopen(src, "rb");
+    outfile = cr_open(disk, dest, 'w');
+    while((nbytes = fread(buffer, 1, BUFF_SIZE, infile)) > 0) {
+        cr_write(outfile, buffer, nbytes);
+    }
+    cr_close(outfile);
+    fclose(infile);
+
+}
+
 int cr_load(unsigned disk, char *orig)
 {
-    return 0;
+    struct stat sb;
+    DIR *d;
+    struct dirent *dir;
+    char *filename;
+    
+    stat(orig, &sb);
+    if (S_ISREG(sb.st_mode)) {
+        if (cr_exists(disk, orig)) {
+            printf("[ERROR] File \"%s\" on Disk %d exists already.\n", orig, disk);
+            return -1;
+        } else {
+            _cr_load_file(disk, orig, orig);
+        }
+    } else if (S_ISDIR(sb.st_mode)) {
+        d = opendir(orig);
+        while ((dir = readdir(d))) {
+            filename = join_dir_file(orig, dir->d_name);
+            stat(filename, &sb);
+            if (S_ISREG(sb.st_mode)) {
+                // printf("%s\n", filename);
+                if (cr_exists(disk, dir->d_name)) {
+                    printf("[ERROR] File \"%s\" on Disk %d exists already.\n", dir->d_name, disk);
+                    free(filename);
+                    continue;
+                } else {
+                    _cr_load_file(disk, dir->d_name, filename);
+                }
+            }
+            free(filename);
+        }
+        closedir(d);
+    } else {
+        perror(orig);
+        exit(EXIT_FAILURE);
+    }
 }
