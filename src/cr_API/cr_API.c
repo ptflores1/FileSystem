@@ -525,6 +525,7 @@ int cr_rm(unsigned int disk, char *filename) {
         fwrite(indexBuffer, 1, S_BLOCK, bin);
 
         fclose(bin);
+        cr_close(file);
         free(hardlinkCountUpdated);
         free(indexBuffer);
         return 0; 
@@ -579,6 +580,7 @@ int cr_rm(unsigned int disk, char *filename) {
     
     fseek(bin, (disk - 1) * S_PARTITION + S_BLOCK, SEEK_SET);
     fwrite(bitmapBuffer, 1, S_BLOCK, bin);
+    cr_close(file);
     fclose(bin);
     free(bitmapBuffer);
     free(indexBuffer);
@@ -815,7 +817,7 @@ int _cr_load_file( unsigned disk, char *dest, char *src)
 {
     crFILE *outfile;
     FILE *infile;
-    const int BUFF_SIZE = 1000000;
+    const int BUFF_SIZE = 10000000;
     unsigned char *buffer = malloc(BUFF_SIZE);
     int nbytes;
 

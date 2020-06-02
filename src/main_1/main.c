@@ -18,6 +18,7 @@ int main() {
     cr_ls(0);
     cr_bitmap(1, 0);
 
+    // cr_rm(1, "great_success.gif");
     cr_load(1, "test-input");
 
     cr_ls(0);
