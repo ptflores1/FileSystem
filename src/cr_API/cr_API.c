@@ -606,7 +606,7 @@ int cr_hardlink(unsigned int disk, char *orig, char *dest) {
     for (int i = 0; i < S_BLOCK; i += 32){
         if(cmp_filename(&buffer[i], orig)){
             for (int j = 0; j < 3; j++)
-                new_file_entry[j] = buffer[j];
+                new_file_entry[j] = buffer[i + j];
             break;
         }
     }
