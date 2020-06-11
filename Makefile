@@ -50,7 +50,7 @@ LIB=$(GTK) $(MTH) $(THR)
 COMMON=cr_API utils
 
 # Directorios que serán compilados a un programa
-PROGRAMS=crfs main_1
+PROGRAMS=crfs unload load-unload clean-simdiskformat
 
 # Todos los directorios que contienen archivos de código
 SRCDIR=$(COMMON) $(PROGRAMS)
