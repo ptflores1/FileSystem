@@ -8,13 +8,13 @@
 int main() {
     cr_mount("simdiskformat.bin");
 
-    printf("Files in disk:\n");
-    cr_ls(0);
+    printf("Files in partiton 1:\n");
+    cr_ls(1);
 
     cr_load(1, "test-input");
 
-    printf("Files in disk after loading:\n");
-    cr_ls(0);
+    printf("Files in partiton 1 after loading:\n");
+    cr_ls(1);
 
     cr_unload(0, 0, "load-unload-output");
     return 0;
